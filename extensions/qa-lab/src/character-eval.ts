@@ -1,6 +1,5 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { formatErrorMessage } from "openclaw/plugin-sdk/error-runtime";
 import { runQaManualLane } from "./manual-lane.runtime.js";
 import { isQaFastModeModelRef, type QaProviderMode } from "./model-selection.js";
 import { type QaThinkingLevel } from "./qa-gateway-config.js";
@@ -192,6 +191,20 @@ function collectTranscriptStats(transcript: string) {
     userTurns: transcript.match(/^USER\b/gm)?.length ?? 0,
     assistantTurns: transcript.match(/^ASSISTANT\b/gm)?.length ?? 0,
   };
+}
+
+function describeCharacterEvalError(error: unknown) {
+  if (error instanceof Error) {
+    return error.message || error.name || "Error";
+  }
+  if (typeof error === "string") {
+    return error;
+  }
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
 }
 
 function buildJudgePrompt(params: { scenarioId: string; runs: readonly QaCharacterEvalRun[] }) {
@@ -461,7 +474,7 @@ export async function runQaCharacterEval(params: QaCharacterEvalParams) {
         fastMode,
         transcript,
         stats: collectTranscriptStats(transcript),
-        error: formatErrorMessage(error),
+        error: describeCharacterEvalError(error),
       });
     }
   }
@@ -495,7 +508,7 @@ export async function runQaCharacterEval(params: QaCharacterEvalParams) {
       });
       rankings = parseJudgeReply(rawReply, new Set(models));
     } catch (error) {
-      judgeError = formatErrorMessage(error);
+      judgeError = describeCharacterEvalError(error);
     }
 
     judgments.push({
